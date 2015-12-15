@@ -46,6 +46,7 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.WindowManagerGlobal;
+import android.content.pm.PackageManager;
 
 import cyanogenmod.providers.CMSettings;
 
@@ -56,6 +57,17 @@ public class KeyHandler implements DeviceKeyHandler {
 
     private static final String TAG = KeyHandler.class.getSimpleName();
     private static final int GESTURE_REQUEST = 1;
+
+    private static final String PROP_CAMERA_LAUNCH_INTENT = "persist.gestures.camera";
+    private static final String PROP_TORCH_LAUNCH_INTENT = "persist.gestures.torch";
+    private static final String PROP_HAPTIC_FEEDBACK = "persist.gestures.haptic";
+    private static final String PROP_PLAY_PAUSE_LAUNCH_INTENT = "persist.gestures.play";
+    private static final String PROP_PREVIOUS_LAUNCH_INTENT = "persist.gestures.previous";
+    private static final String PROP_NEXT_LAUNCH_INTENT = "persist.gestures.next";
+    
+    private static final String GESTURE_FILE_LOCATION = 
+			"/data/data/com.cyanogenmod.settings.device/";
+
 
     private static final String KEY_GESTURE_HAPTIC_FEEDBACK =
             "touchscreen_gesture_haptic_feedback";
@@ -170,43 +182,53 @@ public class KeyHandler implements DeviceKeyHandler {
             switch (msg.arg1) {
             case FLIP_CAMERA_SCANCODE:
             case GESTURE_CIRCLE_SCANCODE:
-                ensureKeyguardManager();
-                final String action;
-                mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
-                if (mKeyguardManager.isKeyguardSecure() && mKeyguardManager.isKeyguardLocked()) {
+                if(!launchIntentFromFile(PROP_CAMERA_LAUNCH_INTENT)){
+                    ensureKeyguardManager();
+                    final String action;
+                    mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
+                    if (mKeyguardManager.isKeyguardSecure() && mKeyguardManager.isKeyguardLocked()) {
                     action = MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE;
-                } else {
-                    mContext.sendBroadcastAsUser(new Intent(ACTION_DISMISS_KEYGUARD),
-                            UserHandle.CURRENT);
-                    action = MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA;
+                    } else {
+                        mContext.sendBroadcastAsUser(new Intent(ACTION_DISMISS_KEYGUARD),
+                                UserHandle.CURRENT);
+                        action = MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA;
+                    }
+                    mPowerManager.wakeUp(SystemClock.uptimeMillis(), "wakeup-gesture");
+                    Intent intent = new Intent(action, null);
+                    startActivitySafely(intent);
                 }
-                mPowerManager.wakeUp(SystemClock.uptimeMillis(), "wakeup-gesture");
-                Intent intent = new Intent(action, null);
-                startActivitySafely(intent);
                 doHapticFeedback();
                 break;
             case GESTURE_SWIPE_DOWN_SCANCODE:
-                dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+                if(!launchIntentFromFile(PROP_PLAY_PAUSE_LAUNCH_INTENT)){
+                    dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+                }
                 doHapticFeedback();
                 break;
             case GESTURE_V_SCANCODE:
-                if (mRearCameraId != null) {
-                    mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
-                    try {
-                        mCameraManager.setTorchMode(mRearCameraId, !mTorchEnabled);
-                        mTorchEnabled = !mTorchEnabled;
-                    } catch (CameraAccessException e) {
-                        // Ignore
+                if(!launchIntentFromFile(PROP_TORCH_LAUNCH_INTENT)){
+                    if (mRearCameraId != null) {
+                        mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
+                        try {
+                            mCameraManager.setTorchMode(mRearCameraId, !mTorchEnabled);
+                            mTorchEnabled = !mTorchEnabled;
+                        } catch (CameraAccessException e) {
+                            // Ignore
+                        }
+                        doHapticFeedback();
                     }
-                    doHapticFeedback();
                 }
                 break;
             case GESTURE_LTR_SCANCODE:
-                dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+                if(!launchIntentFromFile(PROP_PREVIOUS_LAUNCH_INTENT)){
+                    dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+                }
                 doHapticFeedback();
                 break;
             case GESTURE_GTR_SCANCODE:
-                dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_NEXT);
+                if(!launchIntentFromFile(PROP_NEXT_LAUNCH_INTENT)){
+                    dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_NEXT);
+                }
                 doHapticFeedback();
                 break;
             }
@@ -299,6 +321,24 @@ public class KeyHandler implements DeviceKeyHandler {
             // Ignore
         }
     }
+    
+    private boolean launchIntentFromFile(String filename){
+		String packageName = FileUtils.readOneLine(GESTURE_FILE_LOCATION + filename);
+		Intent intent = null;		
+		if(packageName != null && !packageName.equals("")){
+			intent = mContext.getPackageManager().getLaunchIntentForPackage(packageName);			
+		}
+		if(intent != null){
+			ensureKeyguardManager();
+            mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
+            mContext.sendBroadcastAsUser(new Intent(ACTION_DISMISS_KEYGUARD),
+					UserHandle.CURRENT);
+            mPowerManager.wakeUp(SystemClock.uptimeMillis());
+            startActivitySafely(intent);
+            return true;
+		}
+		return false;
+	}
 
     private void doHapticFeedback() {
         if (mVibrator == null) {

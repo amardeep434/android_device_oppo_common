@@ -31,6 +31,35 @@
         android:title="@string/touchscreen_flashlight_gesture_title"
         android:summary="@string/touchscreen_flashlight_gesture_summary" />
 
+    <PreferenceCategory android:title="@string/touchscreen_action_title">
+		
+        <ListPreference
+			android:key="touchscreen_gesture_camera_launch_intent"
+			android:title="@string/touchscreen_action_title_camera"			
+			android:summary="@string/touchscreen_action_title_camera_summary" />
+			
+        <ListPreference
+			android:key="touchscreen_gesture_torch_launch_intent"
+			android:title="@string/touchscreen_action_title_flashlight"			
+			android:summary="@string/touchscreen_action_title_flashlight_summary" />
+			
+        <ListPreference
+			android:key="touchscreen_gesture_play_pause_launch_intent"
+			android:title="@string/touchscreen_action_title_play"			
+			android:summary="@string/touchscreen_action_title_play_summary" />
+			
+        <ListPreference
+			android:key="touchscreen_gesture_previous_launch_intent"
+			android:title="@string/touchscreen_action_title_previous"			
+			android:summary="@string/touchscreen_action_title_previous_summary" />
+			
+        <ListPreference
+			android:key="touchscreen_gesture_next_launch_intent"
+			android:title="@string/touchscreen_action_title_next"			
+			android:summary="@string/touchscreen_action_title_next_summary" />
+			
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/touchscreen_extras">
 
         <SwitchPreference
